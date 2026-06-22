@@ -134,7 +134,7 @@ function requireAuth() {
 }
 
 
-function applyTheme(theme = localStorage.getItem(THEME_KEY) || 'light') {
+function applyTheme(theme = localStorage.getItem(THEME_KEY) || (document.body.classList.contains('profile-screen') ? 'dark' : 'light')) {
   document.body.classList.toggle('theme-dark', theme === 'dark');
   document.querySelectorAll('[data-theme-toggle]').forEach((button) => button.setAttribute('aria-pressed', theme === 'dark'));
 }
@@ -409,13 +409,36 @@ function initTopup() {
 }
 
 
+function maskEmail(email) {
+  if (!email) return 'kaerz.03.00@gmail...';
+  const [name, domain = ''] = String(email).split('@');
+  return `${name}@${domain}`.length > 18 ? `${name}@${domain}`.slice(0, 18) + '...' : `${name}@${domain}`;
+}
+
+function getProfileId(user) {
+  const source = String(user?.id || user?.username || 'user');
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) hash = ((hash << 5) - hash + source.charCodeAt(index)) >>> 0;
+  return hash.toString(16).padStart(8, '0').slice(0, 8);
+}
+
 function initProfile() {
   if (document.body.dataset.page !== 'profile') return;
   const user = requireAuth(); if (!user) return;
-  document.querySelector('[data-profile-name]').textContent = user.displayName || user.username;
-  document.querySelector('[data-wallet-balance]').textContent = formatMoney(user.balance || 0);
-  document.querySelector('[data-user-role]').textContent = isAdmin(user) ? 'ADMIN' : 'USER';
-  document.querySelector('[data-profile-orders]').textContent = readList(ORDERS_KEY).length;
+  const displayName = user.displayName || user.username || 'ผู้ใช้งาน';
+  const username = user.username || displayName;
+  const orders = readList(ORDERS_KEY);
+  const lastLogin = user.lastLogin || user.createdAt || new Date().toISOString();
+
+  document.querySelectorAll('[data-profile-name]').forEach((el) => { el.textContent = displayName; });
+  document.querySelector('[data-profile-username]')?.replaceChildren(document.createTextNode(username));
+  document.querySelector('[data-profile-id]')?.replaceChildren(document.createTextNode(user.id || getProfileId(user)));
+  document.querySelector('[data-profile-discord]')?.replaceChildren(document.createTextNode(user.discordId || '1232959731350503485'));
+  document.querySelector('[data-profile-email]')?.replaceChildren(document.createTextNode(maskEmail(user.email)));
+  document.querySelector('[data-last-login]')?.replaceChildren(document.createTextNode(formatThaiDate(lastLogin)));
+  document.querySelectorAll('[data-user-role]').forEach((el) => { el.textContent = isAdmin(user) ? 'ผู้ดูแลระบบ' : 'สมาชิก'; });
+  document.querySelector('[data-wallet-balance]')?.replaceChildren(document.createTextNode(formatMoney(user.balance || 0)));
+  document.querySelector('[data-profile-orders]')?.replaceChildren(document.createTextNode(orders.length));
   const form = document.querySelector('[data-profile-form]');
   form?.addEventListener('submit', (event) => { event.preventDefault(); user.displayName = new FormData(form).get('displayName') || user.displayName; setUser(user); requireAuth(); showAlert({ title: 'บันทึกโปรไฟล์แล้ว', type: 'success' }); });
 }
