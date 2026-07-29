@@ -1,0 +1,70 @@
+<!-- admin/index.html - simple admin UI that talks to /api/admin/* -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px}
+    .row{display:flex;gap:12px}
+    .card{border:1px solid #ddd;padding:12px;border-radius:8px;flex:1}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+    button{padding:6px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
+  </style>
+</head>
+<body>
+  <h1>Admin Dashboard</h1>
+  <div class="row">
+    <div class="card">
+      <h3>Metrics</h3>
+      <div id="metrics">Loading…</div>
+    </div>
+    <div class="card">
+      <h3>Products</h3>
+      <div id="products">Loading…</div>
+      <button id="refreshProducts">Refresh</button>
+    </div>
+  </div>
+  <div style="margin-top:18px" class="card">
+    <h3>Orders</h3>
+    <div id="orders">Loading…</div>
+    <button id="refreshOrders">Refresh</button>
+  </div>
+
+  <script>
+    async function loadMetrics(){
+      const r = await fetch('/api/admin/metrics');
+      const j = await r.json();
+      document.getElementById('metrics').innerText = `Orders: ${j.orders}\nRevenue: ${j.revenue}\nUsers: ${j.users}`;
+    }
+
+    async function loadProducts(){
+      const r = await fetch('/api/admin/products');
+      const j = await r.json();
+      const el = document.getElementById('products');
+      if (!j.products) { el.innerText = 'No products'; return; }
+      el.innerHTML = '<table><thead><tr><th>Name</th><th>Price</th><th>Stock</th></tr></thead><tbody>' + j.products.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${p.price}</td><td>${p.stock}</td></tr>`).join('') + '</tbody></table>';
+    }
+
+    async function loadOrders(){
+      const r = await fetch('/api/admin/orders');
+      const j = await r.json();
+      const el = document.getElementById('orders');
+      if (!j.orders) { el.innerText = 'No orders'; return; }
+      el.innerHTML = '<table><thead><tr><th>ID</th><th>User</th><th>Status</th><th>Total</th><th>Action</th></tr></thead><tbody>' + j.orders.map(o => `<tr><td>${o.id}</td><td>${o.user_id || '-'}</td><td>${o.status}</td><td>${o.total || 0}</td><td><button data-id="${o.id}" class="markPaid">Mark Paid</button> <button data-id="${o.id}" class="markCancelled">Cancel</button></td></tr>`).join('') + '</tbody></table>';
+      document.querySelectorAll('.markPaid').forEach(b=>b.addEventListener('click', async (e)=>{const id=e.target.dataset.id; await fetch(`/api/admin/orders?id=${id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({status:'paid'})}); loadOrders(); loadMetrics();}));
+      document.querySelectorAll('.markCancelled').forEach(b=>b.addEventListener('click', async (e)=>{const id=e.target.dataset.id; await fetch(`/api/admin/orders?id=${id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({status:'cancelled'})}); loadOrders(); loadMetrics();}));
+    }
+
+    function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    document.getElementById('refreshProducts').addEventListener('click', loadProducts);
+    document.getElementById('refreshOrders').addEventListener('click', loadOrders);
+
+    // initial
+    loadMetrics(); loadProducts(); loadOrders();
+  </script>
+</body>
+</html>
