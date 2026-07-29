@@ -1,72 +1,50 @@
 -- migrations/schema.sql
+-- Run this SQL in your Supabase SQL editor or via psql.
 
--- Enable required extensions
-create extension if not exists "pgcrypto";
-
--- profiles: link to auth.users
-create table if not exists profiles (
-  id uuid primary key references auth.users(id),
+create table if not exists users (
+  id uuid default gen_random_uuid() primary key,
+  email text unique,
   display_name text,
-  phone text,
+  role text default 'user',
+  balance numeric default 0,
   created_at timestamptz default now()
 );
 
--- games: catalogue
-create table if not exists games (
-  id serial primary key,
-  slug text unique not null,
-  name text not null,
-  regions jsonb, -- servers, meta
-  created_at timestamptz default now()
-);
-
--- products (topup packages)
 create table if not exists products (
-  id serial primary key,
-  game_id int references games(id),
-  code text, -- internal sku
-  title text,
-  price_cents int not null, -- store in cents
-  currency text default 'THB',
-  meta jsonb,
-  active boolean default true,
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  description text,
+  price numeric not null default 0,
+  stock int default 0,
+  featured boolean default false,
   created_at timestamptz default now()
 );
 
--- transactions
-create table if not exists transactions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id),
-  game_id int references games(id),
-  product_id int references products(id),
-  player_uid text not null, -- game account id
-  amount_cents int not null,
-  currency text default 'THB',
-  payment_provider text,
-  provider_payment_id text,
-  status text default 'pending', -- pending, paid, failed, refunded
-  idempotency_key text,
-  raw_payload jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
--- fulfillment logs
-create table if not exists fulfillment_logs (
-  id serial primary key,
-  transaction_id uuid references transactions(id),
-  attempt int default 1,
-  status text,
-  detail text,
+create table if not exists orders (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references users(id) on delete set null,
+  status text default 'pending',
+  total numeric default 0,
+  metadata jsonb,
   created_at timestamptz default now()
 );
 
--- optional: basic seed data (games/products)
-insert into games (slug, name, regions)
-select 'example-game', 'Example Game', '{"servers": ["SEA-1", "SEA-2"]}'
-where not exists (select 1 from games where slug = 'example-game');
+create table if not exists order_items (
+  id uuid default gen_random_uuid() primary key,
+  order_id uuid references orders(id) on delete cascade,
+  product_id uuid references products(id) on delete set null,
+  price numeric,
+  quantity int default 1
+);
 
-insert into products (game_id, code, title, price_cents, currency, meta, active)
-select g.id, 'EX100', '100 Diamonds', 10000, 'THB', '{"amount":100}', true
-from games g
-where g.slug = 'example-game' and not exists (select 1 from products p where p.code = 'EX100');
+create table if not exists topups (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references users(id) on delete set null,
+  amount numeric not null,
+  status text default 'pending',
+  created_at timestamptz default now()
+);
+
+-- indices for common queries
+create index if not exists idx_orders_created_at on orders(created_at);
+create index if not exists idx_products_featured on products(featured);
