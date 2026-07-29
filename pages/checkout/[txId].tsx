@@ -1,8 +1,11 @@
 // pages/checkout/[txId].tsx
 
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react';
-import CheckoutForm from '../../components/CheckoutForm';
+
+// Load CheckoutForm only on client to avoid bundling @stripe/* during SSR
+const CheckoutForm = dynamic(() => import('../../components/CheckoutForm'), { ssr: false });
 
 export default function CheckoutPage() {
   const router = useRouter();
