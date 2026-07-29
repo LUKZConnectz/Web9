@@ -7,7 +7,13 @@
   "dependencies": {
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "@supabase/supabase-js": "latest",
+    "@supabase/auth-helpers-nextjs": "latest",
+    "@stripe/stripe-js": "latest",
+    "@stripe/react-stripe-js": "latest",
+    "stripe": "latest",
+    "micro": "latest"
   },
   "devDependencies": {
     "typescript": "latest",
